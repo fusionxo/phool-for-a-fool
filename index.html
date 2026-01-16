@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Living Sunflower</title>
+    <title>A Little Digital Hug</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;600&family=Sacramento&display=swap" rel="stylesheet">
     <style>
+        /* --- Core Variables & Animations --- */
         :root {
             /* Night Theme Palette */
             --sky-top: #0f2027;
@@ -15,56 +18,134 @@
             --petal-color-2: #FF8C00;
             --seed-center: #1a0f0a;
             --seed-outer: #3e2723;
+
+            /* Glassmorphism tuned for Dark Mode */
+            --glass-bg: rgba(20, 20, 35, 0.4); 
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #e0e0e0;
+            --text-highlight: #ffd700;
         }
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+        body {
+            font-family: 'Quicksand', sans-serif;
             /* Deep Night Gradient */
             background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            color: var(--text-main);
+            /* Improve touch response globally */
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* Ambient Background Overlay for warmth */
-        .atmosphere {
+        button {
+            /* Fix for mobile touch delay and responsiveness */
+            touch-action: manipulation;
+            cursor: pointer;
+            /* Ensure buttons are always on top of their container background */
+            position: relative; 
+            z-index: 50;
+        }
+
+        /* --- Glassmorphism --- */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* --- Transitions --- */
+        .scene {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+            transform: scale(0.95);
+            z-index: 10;
+        }
+
+        .scene.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+
+        /* --- Envelope Animation --- */
+        .envelope-wrapper {
+            perspective: 1000px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .envelope {
+            width: 300px;
+            height: 200px;
+            background: #1a1a2e; /* Dark envelope */
+            position: relative;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform-style: preserve-3d;
+            transition: transform 0.6s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .envelope:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.2); /* Golden glow */
+        }
+        .flap {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            /* Moonlight Spotlight */
-            background: radial-gradient(circle at 50% 50%, rgba(40, 50, 80, 0.4) 0%, rgba(10, 10, 20, 0.8) 80%);
-            pointer-events: none;
+            background: #232342; /* Slightly lighter dark */
+            clip-path: polygon(0 0, 50% 50%, 100% 0);
+            transform-origin: top;
+            transition: transform 0.6s 0.2s ease;
+            z-index: 5;
+            border-radius: 10px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .envelope.open .flap {
+            transform: rotateX(180deg);
             z-index: 1;
         }
-
-        /* Canvas for Pollen Particles */
-        #pollen-canvas {
+        .letter {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            height: 90%;
+            background: #fffaf0;
+            border-radius: 5px;
             z-index: 2;
-            pointer-events: none;
+            transition: transform 0.6s 0.6s ease;
+        }
+        .envelope.open .letter {
+            transform: translate(-50%, -120%);
         }
 
-        /* Main Container */
+        /* --- COMPLEX SUNFLOWER CSS --- */
         .garden {
-            position: relative;
+            position: absolute;
             width: 100%;
             height: 100%;
             display: flex;
             justify-content: center;
             align-items: flex-end;
-            z-index: 3;
+            z-index: 1; /* Behind text */
             perspective: 1000px;
+            pointer-events: none; /* Let clicks pass through unless on flower */
         }
 
-        /* The Stem (SVG) */
         .stem-container {
             position: absolute;
             bottom: 0;
@@ -76,31 +157,26 @@
             filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
         }
 
-        /* The Flower Head Container */
         .flower-head-wrapper {
             position: absolute;
-            /* Start position, will be updated by JS */
             left: 50%;
             top: 40%; 
             width: 0;
             height: 0;
             z-index: 5;
             transform-style: preserve-3d;
-            cursor: pointer;
+            pointer-events: auto; /* Flower itself receives clicks */
         }
 
-        /* The actual rotatable flower head */
         .flower-head {
             position: relative;
-            width: 260px;
-            height: 260px;
+            width: 200px; /* Slightly smaller for mobile layout safety */
+            height: 200px;
             background: radial-gradient(circle at center, var(--seed-center) 20%, var(--seed-outer) 100%);
             border-radius: 50%;
-            transform: translate(-50%, -50%) scale(0); /* Start hidden for bloom */
+            transform: translate(-50%, -50%) scale(0);
             transition: box-shadow 0.3s ease, filter 0.3s ease;
-            box-shadow: 
-                0 0 60px rgba(255, 140, 0, 0.15),
-                inset 0 0 20px rgba(0,0,0,0.8);
+            box-shadow: 0 0 60px rgba(255, 140, 0, 0.15), inset 0 0 20px rgba(0,0,0,0.8);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -110,40 +186,27 @@
             animation: bloom-bounce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
 
-        .flower-head:hover {
-            filter: brightness(1.2) drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
-            box-shadow: 
-                0 0 80px rgba(255, 165, 0, 0.4),
-                inset 0 0 20px rgba(0,0,0,0.5);
-        }
-
-        /* Seeds - generated by JS */
         .seed {
             position: absolute;
-            background-color: #1a100c;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 1px 1px 0px rgba(255,255,255,0.05);
         }
 
-        /* Petals */
         .petal {
             position: absolute;
             bottom: 50%;
             left: 50%;
-            width: 50px;
-            height: 140px;
+            width: 40px;
+            height: 110px;
             background: linear-gradient(to top, var(--petal-color-2), var(--petal-color-1));
             border-radius: 50% 50% 10% 10% / 80% 80% 20% 20%;
             transform-origin: bottom center;
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
             filter: drop-shadow(0 0 5px rgba(255, 165, 0, 0.3));
             z-index: -1;
-            opacity: 0; /* Hidden before bloom */
-            transition: transform 0.1s;
+            opacity: 0;
         }
 
-        /* Petal details (veins) */
         .petal::after {
             content: '';
             position: absolute;
@@ -157,18 +220,17 @@
         }
 
         .petal.layer-back {
-            width: 60px;
-            height: 160px;
+            width: 50px;
+            height: 130px;
             background: linear-gradient(to top, #b35900, #ff8c00);
             z-index: -2;
             filter: brightness(0.8);
         }
 
-        /* Leaves attached to stem logic */
         .leaf {
             position: absolute;
-            width: 80px;
-            height: 40px;
+            width: 60px;
+            height: 30px;
             background: linear-gradient(45deg, var(--stem-shadow), var(--stem-color));
             border-radius: 0 80% 0 80%;
             box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
@@ -178,12 +240,8 @@
             opacity: 0;
             transition: opacity 1s ease 1s;
         }
-        
-        .leaf.visible {
-            opacity: 1;
-        }
+        .leaf.visible { opacity: 1; }
 
-        /* Animations */
         @keyframes bloom-bounce {
             0% { transform: translate(-50%, -50%) scale(0); }
             60% { transform: translate(-50%, -50%) scale(1.1); }
@@ -194,37 +252,36 @@
             0% { transform: translateX(-50%) rotate(var(--r)) scale(0); opacity: 0; }
             100% { transform: translateX(-50%) rotate(var(--r)) scale(1); opacity: 1; }
         }
+
+        /* --- Utilities --- */
+        .handwriting { font-family: 'Sacramento', cursive; }
+        .fade-in-text span { opacity: 0; transition: opacity 1s ease; }
+        .fade-in-text span.visible { opacity: 1; }
         
-        /* Mobile Instructions */
-        .hint {
+        #canvas-bg {
             position: absolute;
-            bottom: 20px;
+            top: 0;
+            left: 0;
             width: 100%;
-            text-align: center;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.9rem;
+            height: 100%;
+            z-index: 0;
             pointer-events: none;
-            z-index: 10;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-            opacity: 0;
-            animation: fadeIn 2s ease 3s forwards;
         }
-
-        @keyframes fadeIn { to { opacity: 1; } }
-
     </style>
 </head>
 <body>
 
-    <div class="atmosphere"></div>
-    
-    <!-- Canvas for Pollen -->
-    <canvas id="pollen-canvas"></canvas>
+    <!-- Audio Controller -->
+    <button id="audio-toggle" class="fixed top-5 right-5 z-50 glass rounded-full p-3 transition hover:scale-110 active:scale-95 focus:outline-none text-white cursor-pointer" aria-label="Toggle Sound">
+        <svg id="icon-mute" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+        <svg id="icon-sound" class="hidden" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+    </button>
 
-    <div class="garden" id="garden">
-        <!-- SVG for the organic stem curve -->
+    <canvas id="canvas-bg"></canvas>
+
+    <!-- The Garden Container (Persistent but hidden until needed) -->
+    <div class="garden opacity-0 transition-opacity duration-1000" id="garden-container">
         <svg class="stem-container" id="stem-svg">
-            <!-- Filter for slight noise/texture on stem -->
             <defs>
                 <filter id="displacementFilter">
                     <feTurbulence type="turbulence" baseFrequency="0.05" numOctaves="2" result="turbulence"/>
@@ -234,309 +291,523 @@
             <path id="stem-path" d="" fill="none" stroke="#2d4c1e" stroke-width="18" stroke-linecap="round" filter="url(#displacementFilter)" />
         </svg>
 
-        <!-- Dynamic Leaves -->
         <div id="leaf-1" class="leaf"></div>
         <div id="leaf-2" class="leaf"></div>
 
-        <!-- The Flower Head -->
         <div class="flower-head-wrapper" id="flower-wrapper">
             <div class="flower-head" id="flower-head">
-                <!-- Petals and seeds will be injected here -->
+                <!-- Petals/Seeds injected via JS -->
             </div>
         </div>
     </div>
 
-    <div class="hint">Move your mouse or touch to interact</div>
+
+    <!-- SCENE 1: The Envelope -->
+    <section id="scene-1" class="scene active">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-white drop-shadow-lg mb-2">For My Best Friend</h1>
+            <p class="text-blue-200 opacity-80">A little delivery for the night...</p>
+        </div>
+        
+        <div class="envelope-wrapper" onclick="openEnvelope()">
+            <div class="envelope" id="main-envelope">
+                <div class="flap"></div>
+                <div class="letter flex items-center justify-center p-4 text-center">
+                    <p class="handwriting text-3xl text-gray-800">Hey You...</p>
+                </div>
+            </div>
+        </div>
+        <p class="mt-12 text-sm text-white opacity-40 animate-pulse">Tap to open</p>
+    </section>
+
+    <!-- SCENE 2: The Whisper -->
+    <section id="scene-2" class="scene">
+        <!-- Added 'relative' here to ensure z-index context works -->
+        <div class="max-w-md w-full px-6 z-20 relative">
+            <div class="glass rounded-3xl p-8 text-center min-h-[300px] flex flex-col justify-center items-center relative overflow-hidden">
+                <div id="whisper-container" class="space-y-4 fade-in-text text-lg md:text-xl text-gray-200 font-medium">
+                    <!-- Text injected by JS -->
+                </div>
+                <!-- 
+                     Fix: Added 'relative z-50' to ensure it sits on top.
+                     Removed 'hover:-translate-y-1' to prevent mobile hover flicker.
+                     Kept transition simple.
+                -->
+                <button onclick="nextScene(3)" id="btn-bloom" class="mt-8 px-6 py-2 bg-gradient-to-r from-yellow-600 to-yellow-800 text-white border border-yellow-500/30 rounded-full opacity-0 transition-all duration-1000 transform translate-y-4 shadow-lg relative z-50">
+                    Find the light
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- SCENE 3: The Sunflower (Transparent overlay on top of the Garden) -->
+    <section id="scene-3" class="scene">
+        <!-- The flower is handled by the #garden-container in the background -->
+        <div class="flex flex-col items-center justify-end h-full pb-20 pointer-events-none">
+            <!-- Message box positioned safely -->
+            <div class="glass p-6 rounded-2xl max-w-xs text-center transform transition-all duration-1000 opacity-0 translate-y-4 pointer-events-auto" id="sunflower-msg">
+                <h3 class="text-xl font-bold text-yellow-400 mb-2">Like a Sunflower</h3>
+                <p class="text-sm text-gray-300 leading-relaxed">
+                    Even in the darkest times, you have this instinct to find the light. You stand tall, you grow, and you're beautiful.
+                </p>
+                <div class="text-xs text-gray-500 mt-2 mb-4">(Move your mouse/finger around)</div>
+                <button onclick="nextScene(4)" class="text-yellow-200 font-semibold text-sm hover:text-white transition">
+                    Remember when... ↓
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- SCENE 4: Memory Grid -->
+    <section id="scene-4" class="scene">
+        <h2 class="text-2xl text-white font-bold mb-6 drop-shadow-md">Pieces of You</h2>
+        <!-- Added relative to ensure clicks register over any background elements -->
+        <div class="grid grid-cols-2 gap-4 max-w-md px-4 w-full z-20 relative" id="card-grid">
+            <!-- Cards injected by JS -->
+        </div>
+        <button onclick="nextScene(5)" class="mt-8 px-8 py-3 bg-white/10 border border-white/20 backdrop-blur-md text-white font-bold rounded-full shadow-lg hover:bg-white/20 transition transform hover:scale-105 z-20 relative">
+            One last thing...
+        </button>
+    </section>
+
+    <!-- SCENE 5: The Hug (Ending) -->
+    <section id="scene-5" class="scene">
+        <div class="glass p-8 rounded-3xl max-w-sm text-center mx-4 shadow-2xl z-20 relative">
+            <div class="mb-4 text-4xl">💛</div>
+            <h2 class="text-2xl font-bold text-gray-100 mb-4">Zero Pressure. Just Love.</h2>
+            <p class="text-gray-300 mb-6 leading-relaxed">
+                Friendship isn't about constant replies or being perfect. It's about knowing that no matter how much time passes, this space is safe for you.
+            </p>
+            <p class="text-gray-400 mb-8 text-sm italic">
+                I'm cheering for you, always.
+            </p>
+            
+            <div class="flex flex-col gap-3">
+                <button onclick="celebrate('hug')" class="w-full py-3 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-xl text-white font-bold shadow-md hover:opacity-90 transition transform hover:-translate-y-1 relative z-50">
+                    Sending a Hug Back
+                </button>
+                <button onclick="celebrate('smile')" class="w-full py-3 border border-yellow-500/30 rounded-xl text-yellow-400 font-bold hover:bg-yellow-500/10 transition relative z-50">
+                    This made me smile
+                </button>
+            </div>
+        </div>
+    </section>
 
     <script>
-        /**
-         * CONFIGURATION
-         */
-        const CONFIG = {
-            petalCount: 24,
-            layerCount: 2,
-            seedCount: 180,
-            stemColor: '#2d4c1e',
-            stemWidth: 20,
-            swaySpeed: 0.002,
-            swayRange: 30, // Max pixels stem moves
-            mouseInfluence: 0.1, // Lerp speed
+        /* --- STATE MANAGEMENT --- */
+        let currentScene = 1;
+
+        function nextScene(n) {
+            // Hide current
+            document.querySelector(`.scene.active`).classList.remove('active');
+            
+            // Show next
+            const next = document.getElementById(`scene-${n}`);
+            next.classList.add('active');
+            currentScene = n;
+
+            // Scene specific triggers
+            if(n === 2) startWhisper();
+            if(n === 3) {
+                // Activate the garden container
+                document.getElementById('garden-container').classList.remove('opacity-0');
+                initSunflower(); // Start the complex flower logic
+            } else {
+                // If leaving scene 3, fade out garden but keep it strictly for scene 3
+                if(n !== 3) document.getElementById('garden-container').classList.add('opacity-0');
+            }
+            if(n === 4) renderCards();
+            
+            playChime('transition');
+        }
+
+        /* --- AUDIO ENGINE --- */
+        const AudioEngine = {
+            ctx: null,
+            enabled: false,
+            bgInterval: null,
+            init: function() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.enabled = true;
+                this.startAmbient();
+            },
+            toggle: function() {
+                if (!this.ctx) { this.init(); return true; }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                    this.enabled = true;
+                    this.startAmbient();
+                    return true;
+                } else {
+                    this.ctx.suspend();
+                    this.enabled = false;
+                    clearInterval(this.bgInterval);
+                    return false;
+                }
+            },
+            playNote: function(freq, duration, volume = 0.1) {
+                if (!this.enabled || this.ctx.state !== 'running') return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            },
+            startAmbient: function() {
+                // Pentatonic scale
+                const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+                if (this.bgInterval) clearInterval(this.bgInterval);
+                this.bgInterval = setInterval(() => {
+                    if(!this.enabled) return;
+                    const freq = scale[Math.floor(Math.random() * scale.length)];
+                    const vol = 0.02 + Math.random() * 0.03; 
+                    this.playNote(freq, 2.5, vol);
+                }, 3000);
+            }
         };
 
-        /**
-         * ELEMENTS
-         */
-        const garden = document.getElementById('garden');
-        const flowerHead = document.getElementById('flower-head');
-        const flowerWrapper = document.getElementById('flower-wrapper');
-        const stemPath = document.getElementById('stem-path');
-        const leaf1 = document.getElementById('leaf-1');
-        const leaf2 = document.getElementById('leaf-2');
-        const pollenCanvas = document.getElementById('pollen-canvas');
-        const ctx = pollenCanvas.getContext('2d');
+        function playChime(type) {
+            if(!AudioEngine.enabled) return;
+            if (type === 'open') {
+                AudioEngine.playNote(523.25, 1, 0.1);
+                setTimeout(() => AudioEngine.playNote(659.25, 1, 0.1), 100);
+            } else if (type === 'transition') AudioEngine.playNote(783.99, 1.5, 0.05);
+            else if (type === 'success') {
+                AudioEngine.playNote(523.25, 0.5, 0.1);
+                setTimeout(() => AudioEngine.playNote(880.00, 1, 0.1), 150);
+            }
+        }
 
-        /**
-         * STATE
-         */
-        let dimensions = { w: window.innerWidth, h: window.innerHeight };
-        let mouse = { x: dimensions.w / 2, y: dimensions.h / 2 };
-        let target = { x: dimensions.w / 2, y: dimensions.h * 0.4 }; // Where the flower wants to go
-        let current = { x: dimensions.w / 2, y: dimensions.h * 0.4 }; // Where the flower is
-        let time = 0;
-        let particles = [];
+        document.getElementById('audio-toggle').addEventListener('click', function() {
+            const isOn = AudioEngine.toggle();
+            const muteIcon = document.getElementById('icon-mute');
+            const soundIcon = document.getElementById('icon-sound');
+            if (isOn) {
+                muteIcon.classList.add('hidden');
+                soundIcon.classList.remove('hidden');
+                this.classList.add('bg-white/20');
+                this.classList.remove('glass');
+            } else {
+                muteIcon.classList.remove('hidden');
+                soundIcon.classList.add('hidden');
+                this.classList.remove('bg-white/20');
+                this.classList.add('glass');
+            }
+        });
 
-        /**
-         * INITIALIZATION
-         */
-        function init() {
-            resize();
-            createFlowerStructure();
-            createParticles();
-            
-            // Event Listeners
-            window.addEventListener('resize', resize);
-            window.addEventListener('mousemove', handleInput);
-            window.addEventListener('touchmove', (e) => handleInput(e.touches[0]));
-            
-            // Start Animation Loop
-            requestAnimationFrame(animate);
+        /* --- SCENE LOGIC --- */
 
-            // Trigger Bloom
+        function openEnvelope() {
+            const env = document.getElementById('main-envelope');
+            if (env.classList.contains('open')) return;
+            env.classList.add('open');
+            playChime('open');
+            setTimeout(() => nextScene(2), 1800);
+        }
+
+        function startWhisper() {
+            const container = document.getElementById('whisper-container');
+            const messages = [
+                "I know the world feels loud sometimes...",
+                "And heavy...",
+                "But I wanted to remind you...",
+                "You are doing amazing."
+            ];
+            let delay = 500;
+            container.innerHTML = '';
+            messages.forEach((msg, index) => {
+                const p = document.createElement('p');
+                const span = document.createElement('span');
+                span.textContent = msg;
+                p.appendChild(span);
+                container.appendChild(p);
+                setTimeout(() => {
+                    span.classList.add('visible');
+                    if(AudioEngine.enabled) AudioEngine.playNote(800 + (index * 50), 0.1, 0.02);
+                }, delay);
+                delay += 1500;
+            });
             setTimeout(() => {
-                flowerHead.classList.add('bloomed');
-                bloomPetals();
-                leaf1.classList.add('visible');
-                leaf2.classList.add('visible');
-            }, 500);
+                const btn = document.getElementById('btn-bloom');
+                // FORCE RESET TRANSFORMS for mobile hit-test accuracy
+                btn.style.opacity = '1';
+                btn.style.transform = 'none'; // Replaces translateY(0) to ensure perfect alignment
+            }, delay + 500);
         }
 
-        function resize() {
-            dimensions.w = window.innerWidth;
-            dimensions.h = window.innerHeight;
-            pollenCanvas.width = dimensions.w;
-            pollenCanvas.height = dimensions.h;
+        function renderCards() {
+            const grid = document.getElementById('card-grid');
+            grid.innerHTML = '';
+            const memories = [
+                { title: "Your Laugh", icon: "✨", desc: "It's literally contagious." },
+                { title: "Safe Space", icon: "🏠", desc: "Thanks for always listening." },
+                { title: "Chaos Mode", icon: "⚡", desc: "Our best adventures." },
+                { title: "Growth", icon: "🌱", desc: "Look how far you've come." }
+            ];
+            memories.forEach((mem, i) => {
+                const card = document.createElement('div');
+                card.className = "glass rounded-xl p-4 text-center transform transition duration-500 hover:scale-105 cursor-pointer opacity-0 hover:bg-white/10";
+                card.style.animation = `fadeUp 0.5s ease forwards ${i * 0.2}s`;
+                card.innerHTML = `
+                    <div class="text-3xl mb-2 text-yellow-400">${mem.icon}</div>
+                    <h4 class="font-bold text-gray-200 text-sm mb-1">${mem.title}</h4>
+                    <p class="text-xs text-gray-400">${mem.desc}</p>
+                `;
+                card.addEventListener('mouseenter', () => playChime('transition'));
+                grid.appendChild(card);
+            });
+        }
+
+        function celebrate(type) {
+            playChime('success');
+            const count = 50;
+            const btn = event.target;
+            const rect = btn.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top;
+            for(let i=0; i<count; i++) createConfetti(centerX, centerY);
+            btn.innerText = type === 'hug' ? "Hug Received! ❤️" : "Keep Smiling! ✨";
+            btn.disabled = true;
+        }
+
+        function createConfetti(x, y) {
+            const confetti = document.createElement('div');
+            confetti.style.position = 'fixed';
+            confetti.style.left = x + 'px';
+            confetti.style.top = y + 'px';
+            confetti.style.width = '6px';
+            confetti.style.height = '6px';
+            confetti.style.backgroundColor = ['#FFC107', '#FF4081', '#E040FB', '#64FFDA'][Math.floor(Math.random()*4)];
+            confetti.style.borderRadius = '50%';
+            confetti.style.pointerEvents = 'none';
+            confetti.style.zIndex = '9999';
+            document.body.appendChild(confetti);
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = 2 + Math.random() * 4;
+            const vx = Math.cos(angle) * velocity;
+            const vy = Math.sin(angle) * velocity - 2;
+            let opacity = 1;
+            let posX = x;
+            let posY = y;
+            function animate() {
+                posX += vx; posY += vy + 1; opacity -= 0.02;
+                confetti.style.left = posX + 'px'; confetti.style.top = posY + 'px'; confetti.style.opacity = opacity;
+                if(opacity > 0) requestAnimationFrame(animate); else confetti.remove();
+            }
+            animate();
+        }
+
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`;
+        document.head.appendChild(styleSheet);
+
+
+        /* --- COMPLEX SUNFLOWER ENGINE (Imported & Adapted) --- */
+        let flowerInitialized = false;
+        
+        const S_CONFIG = {
+            petalCount: 24, layerCount: 2, seedCount: 180,
+            swaySpeed: 0.002, swayRange: 30, mouseInfluence: 0.1
+        };
+
+        const flowerState = {
+            w: window.innerWidth, h: window.innerHeight,
+            mouse: { x: window.innerWidth/2, y: window.innerHeight/2 },
+            target: { x: window.innerWidth/2, y: window.innerHeight*0.4 },
+            current: { x: window.innerWidth/2, y: window.innerHeight*0.4 },
+            time: 0
+        };
+
+        function initSunflower() {
+            if(flowerInitialized) return;
+            flowerInitialized = true;
+
+            const flowerHead = document.getElementById('flower-head');
             
-            // Reset flower slightly on resize
-            current.y = dimensions.h * 0.4;
-        }
-
-        function handleInput(e) {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-        }
-
-        /**
-         * PROCEDURAL GENERATION
-         */
-        function createFlowerStructure() {
-            // 1. Create Seeds (Fibonacci Spiral)
-            const phi = 137.5; // Golden Angle
-            const maxRadius = 120; // Size of seed area
-            
-            for (let i = 0; i < CONFIG.seedCount; i++) {
+            // 1. Create Seeds
+            const phi = 137.5;
+            for (let i = 0; i < S_CONFIG.seedCount; i++) {
                 const angle = i * phi * (Math.PI / 180);
-                const r = 4 * Math.sqrt(i); // Spread factor
-                const x = r * Math.cos(angle);
-                const y = r * Math.sin(angle);
-                
-                // Keep seeds within the head
-                if (r > 60) continue; // Safety clip
-
+                const r = 4 * Math.sqrt(i);
+                if (r > 60) continue;
                 const seed = document.createElement('div');
                 seed.classList.add('seed');
-                
-                // Size varies slightly
                 const size = 3 + Math.random() * 3;
-                seed.style.width = `${size}px`;
-                seed.style.height = `${size}px`;
-                seed.style.left = `calc(50% + ${x}px)`;
-                seed.style.top = `calc(50% + ${y}px)`;
-                
-                // Color variation
-                const lightness = 10 + Math.random() * 15;
-                seed.style.backgroundColor = `hsl(25, 40%, ${lightness}%)`;
-                
+                seed.style.width = `${size}px`; seed.style.height = `${size}px`;
+                seed.style.left = `calc(50% + ${r * Math.cos(angle)}px)`;
+                seed.style.top = `calc(50% + ${r * Math.sin(angle)}px)`;
+                seed.style.backgroundColor = `hsl(25, 40%, ${10 + Math.random() * 15}%)`;
                 flowerHead.appendChild(seed);
             }
 
             // 2. Create Petals
-            for (let layer = 0; layer < CONFIG.layerCount; layer++) {
-                const count = CONFIG.petalCount + (layer * 8);
-                
+            for (let layer = 0; layer < S_CONFIG.layerCount; layer++) {
+                const count = S_CONFIG.petalCount + (layer * 8);
                 for (let i = 0; i < count; i++) {
-                    const angle = (360 / count) * i + (layer * 15); // Offset layers
+                    const angle = (360 / count) * i + (layer * 15);
                     const petal = document.createElement('div');
-                    petal.classList.add('petal');
-                    if (layer === 0) petal.classList.add('layer-back');
-                    
-                    // Set custom property for animation
+                    petal.className = `petal ${layer === 0 ? 'layer-back' : ''}`;
                     petal.style.setProperty('--r', `${angle}deg`);
-                    
-                    // Initial Transform (will be animated by keyframes)
                     petal.style.transform = `translateX(-50%) rotate(${angle}deg) scale(0)`;
-                    
                     flowerHead.appendChild(petal);
                 }
             }
+
+            // Events
+            window.addEventListener('mousemove', (e) => { flowerState.mouse.x = e.clientX; flowerState.mouse.y = e.clientY; });
+            window.addEventListener('touchmove', (e) => { flowerState.mouse.x = e.touches[0].clientX; flowerState.mouse.y = e.touches[0].clientY; });
+            window.addEventListener('resize', () => { flowerState.w = window.innerWidth; flowerState.h = window.innerHeight; });
+
+            // Bloom Animation
+            setTimeout(() => {
+                flowerHead.classList.add('bloomed');
+                document.querySelectorAll('.petal').forEach((p, idx) => {
+                    p.style.animation = `petal-bloom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards ${idx * 0.05}s`;
+                });
+                document.getElementById('leaf-1').classList.add('visible');
+                document.getElementById('leaf-2').classList.add('visible');
+            }, 500);
+
+            setTimeout(() => {
+                document.getElementById('sunflower-msg').style.opacity = '1';
+                document.getElementById('sunflower-msg').style.transform = 'translateY(0)';
+            }, 3000);
+
+            // Start Loop
+            animateSunflower();
         }
 
-        function bloomPetals() {
-            const petals = document.querySelectorAll('.petal');
-            petals.forEach((p, index) => {
-                // Staggered bloom
-                const delay = index * 0.05;
-                p.style.animation = `petal-bloom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards ${delay}s`;
-            });
-        }
-
-        /**
-         * ANIMATION LOOP
-         */
-        function animate() {
-            time += 1;
-
-            // 1. Physics: Calculate Target Position based on Mouse & Wind
-            // The flower tries to look at the mouse, but is anchored
-            // We map mouse X to a constrained range around the center
-            const xLimit = dimensions.w * 0.3;
-            const yLimit = dimensions.h * 0.1;
+        function animateSunflower() {
+            if(currentScene !== 3 && currentScene !== 2) {
+                // Pause animation loop if not near the flower scene to save battery
+                // We keep it running in 2 so it's ready for 3
+                if(currentScene > 3) {
+                     requestAnimationFrame(animateSunflower);
+                     return;
+                }
+            }
             
-            let desiredX = (mouse.x - dimensions.w / 2);
-            // Clamp movement
+            flowerState.time += 1;
+            const { w, h, mouse, current, target } = flowerState;
+
+            // Physics
+            const xLimit = w * 0.3;
+            let desiredX = (mouse.x - w / 2);
             desiredX = Math.max(-xLimit, Math.min(xLimit, desiredX));
             
-            // Add wind (Sine wave)
-            const wind = Math.sin(time * CONFIG.swaySpeed) * CONFIG.swayRange;
+            const wind = Math.sin(flowerState.time * S_CONFIG.swaySpeed) * S_CONFIG.swayRange;
+            target.x = (w / 2) + desiredX + wind;
+            target.y = (h * 0.5) + Math.cos(flowerState.time * S_CONFIG.swaySpeed * 2) * 10; // 0.5 height to center it
+
+            current.x += (target.x - current.x) * S_CONFIG.mouseInfluence;
+            current.y += (target.y - current.y) * S_CONFIG.mouseInfluence;
+
+            // Update DOM
+            const wrapper = document.getElementById('flower-wrapper');
+            const head = document.getElementById('flower-head');
+            const stem = document.getElementById('stem-path');
             
-            // Set target absolute coords
-            target.x = (dimensions.w / 2) + desiredX + wind;
-            
-            // Y position is mostly static but bobs slightly with wind
-            target.y = (dimensions.h * 0.4) + Math.cos(time * CONFIG.swaySpeed * 2) * 10;
+            wrapper.style.left = `${current.x}px`;
+            wrapper.style.top = `${current.y}px`;
 
-            // Smoothly move 'current' towards 'target' (Lerp)
-            current.x += (target.x - current.x) * CONFIG.mouseInfluence;
-            current.y += (target.y - current.y) * CONFIG.mouseInfluence;
-
-            // 2. Update Flower Head Position
-            flowerWrapper.style.left = `${current.x}px`;
-            flowerWrapper.style.top = `${current.y}px`;
-
-            // 3. 3D Rotation of Head to "look" at cursor
-            // Calculate angle
+            // Rotation
             const deltaX = mouse.x - current.x;
             const deltaY = mouse.y - current.y;
-            const rotateY = (deltaX / dimensions.w) * 40; // Max 40deg rotation
-            const rotateX = -(deltaY / dimensions.h) * 40;
+            head.style.transform = `translate(-50%, -50%) rotateX(${-(deltaY/h)*40}deg) rotateY(${(deltaX/w)*40}deg)`;
 
-            flowerHead.style.transform = `translate(-50%, -50%) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-
-            // 4. Update Stem (Bézier Curve)
-            // Start: Bottom Center
-            // Control Point: Calculated to create a nice curve
-            // End: Flower Head Base
-            const startX = dimensions.w / 2;
-            const startY = dimensions.h;
+            // Stem Drawing
+            const startX = w / 2;
+            const startY = h;
             const endX = current.x;
-            const endY = current.y + 130; // Attach to bottom of flower head (radius is 130)
+            const endY = current.y + 100; // Attach point
 
-            // Control point logic: It should lag behind slightly to creating bowing effect
-            const cp1x = startX;
-            const cp1y = startY - (startY - endY) * 0.5;
-            const cp2x = endX;
-            const cp2y = endY + (startY - endY) * 0.3;
+            const d = `M ${startX} ${startY} C ${startX} ${startY - (startY - endY) * 0.5}, ${endX} ${endY + (startY - endY) * 0.3}, ${endX} ${endY}`;
+            stem.setAttribute('d', d);
 
-            // Draw Cubic Bezier for smoother S-curve
-            const d = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
-            stemPath.setAttribute('d', d);
+            // Leaves
+            const l1 = document.getElementById('leaf-1');
+            l1.style.left = `${startX + (endX - startX) * 0.3}px`;
+            l1.style.top = `${startY + (endY - startY) * 0.3}px`;
+            l1.style.transform = `rotate(${desiredX * 0.1 - 45}deg)`;
 
-            // 5. Update Leaves
-            // Place leaves along the curve approximation
-            // Leaf 1 (Lower)
-            const l1x = startX + (endX - startX) * 0.3;
-            const l1y = startY + (endY - startY) * 0.3;
-            leaf1.style.left = `${l1x}px`;
-            leaf1.style.top = `${l1y}px`;
-            leaf1.style.transform = `rotate(${desiredX * 0.1 - 45}deg)`;
+            const l2 = document.getElementById('leaf-2');
+            l2.style.left = `${startX + (endX - startX) * 0.6}px`;
+            l2.style.top = `${startY + (endY - startY) * 0.6}px`;
+            l2.style.transform = `scaleX(-1) rotate(${-(desiredX * 0.1) - 45}deg)`;
 
-            // Leaf 2 (Higher)
-            const l2x = startX + (endX - startX) * 0.6;
-            const l2y = startY + (endY - startY) * 0.6;
-            leaf2.style.left = `${l2x}px`;
-            leaf2.style.top = `${l2y}px`;
-            leaf2.style.transform = `scaleX(-1) rotate(${-(desiredX * 0.1) - 45}deg)`; // Flipped
-
-            // 6. Canvas Particles
-            drawParticles();
-
-            requestAnimationFrame(animate);
+            requestAnimationFrame(animateSunflower);
         }
 
-        /**
-         * PARTICLE SYSTEM (Pollen/Atmosphere)
-         */
-        function createParticles() {
-            for(let i=0; i<100; i++) {
-                particles.push({
-                    x: Math.random() * dimensions.w,
-                    y: Math.random() * dimensions.h,
-                    size: Math.random() * 2 + 0.5,
-                    speedY: Math.random() * 0.3 + 0.05,
-                    speedX: (Math.random() - 0.5) * 0.5,
-                    opacity: Math.random() * 0.5 + 0.1,
-                    pulseSpeed: Math.random() * 0.05 + 0.01,
-                    pulseOffset: Math.random() * Math.PI * 2
-                });
+        /* --- BACKGROUND PARTICLES (Pollen/Fireflies) --- */
+        const canvas = document.getElementById('canvas-bg');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedY = Math.random() * 0.3 + 0.05;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.opacity = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.y -= this.speedY; // Float up
+                this.x += this.speedX + Math.sin(Date.now() * 0.001 + this.y) * 0.1;
+                
+                if(this.y < -10) this.y = canvas.height + 10;
+                if(this.x < -10) this.x = canvas.width + 10;
+                if(this.x > canvas.width + 10) this.x = -10;
+            }
+            draw() {
+                ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`; // Gold
+                ctx.shadowBlur = this.size * 5;
+                ctx.shadowColor = "#ffb300";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
             }
         }
 
-        function drawParticles() {
-            ctx.clearRect(0, 0, dimensions.w, dimensions.h);
-            
-            ctx.fillStyle = "#FFD700"; // Gold fireflies
-            
-            particles.forEach(p => {
-                // Update
-                p.y -= p.speedY; // Float up
-                p.x += p.speedX + Math.sin(time * 0.01 + p.y) * 0.2; // Wiggle
-                
-                // Wrap around
-                if (p.y < -10) p.y = dimensions.h + 10;
-                if (p.x < -10) p.x = dimensions.w + 10;
-                if (p.x > dimensions.w + 10) p.x = -10;
-
-                // Pulsing
-                const pulse = (Math.sin(time * p.pulseSpeed + p.pulseOffset) + 1) / 2;
-                const activeOpacity = p.opacity * 0.5 + (pulse * 0.5);
-
-                // Draw with glow
-                ctx.globalAlpha = activeOpacity;
-                ctx.shadowBlur = p.size * 5;
-                ctx.shadowColor = "#ffb300";
-                
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            
-            ctx.shadowBlur = 0; // Reset
-            
-            // Add Moon glow
-            ctx.globalAlpha = 0.08;
-            const gradient = ctx.createRadialGradient(
-                dimensions.w * 0.5, dimensions.h * 0.3, 0,
-                dimensions.w * 0.5, dimensions.h * 0.3, 600
-            );
-            gradient.addColorStop(0, "rgba(200, 220, 255, 0.3)");
-            gradient.addColorStop(1, "transparent");
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0,0, dimensions.w, dimensions.h);
-            
-            ctx.globalAlpha = 1.0;
+        function initParticles() {
+            for(let i=0; i<80; i++) particles.push(new Particle());
         }
 
-        // Run
-        init();
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Subtle Moon Glow
+            const gradient = ctx.createRadialGradient(
+                canvas.width * 0.5, canvas.height * 0.3, 0,
+                canvas.width * 0.5, canvas.height * 0.3, 600
+            );
+            gradient.addColorStop(0, "rgba(40, 50, 80, 0.4)");
+            gradient.addColorStop(1, "transparent");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateParticles);
+        }
+
+        initParticles();
+        animateParticles();
 
     </script>
 </body>
